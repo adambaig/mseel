@@ -1,6 +1,7 @@
 import glob
 import numpy as np
 
+
 def read_rdvs(events=True, perfs=True):
     dr = 'C:\\Users\\Adam\\Documents\\mseel\\analysis\\?H\\RDV\\'
     if (events and perfs):
@@ -12,6 +13,7 @@ def read_rdvs(events=True, perfs=True):
     else:
         return          
     events = {}
+    coordinates = {'X': 'northing', 'Y': 'easting', 'Z': 'elevation', '0': 't0'}
     for ms_file in ms_files:
         f = open(ms_file)
         head= f.readline()
@@ -30,6 +32,9 @@ def read_rdvs(events=True, perfs=True):
                     events[event_id]['time'] = lspl[0]
                 elif parameter in  ['MS_EVENT_TYPE', 'SP_COMPONENTS_USED', 'SP_RECEIVERS_USED']:
                     events[event_id][parameter] = int(lspl[i_parameter])
+                elif 'QC_LOC_' in parameter:
+                    coord = coordinates[parameter[-1]]
+                    events[event_id][coord] = float(lspl[i_parameter])
                 elif i_parameter!=1:
                     events[event_id][parameter] = float(lspl[i_parameter])                               
     return(events)
@@ -56,19 +61,18 @@ def read_wells():
             lspl = line.split(',')
             wells[well]['md'][i_line] = float(lspl[1])
             wells[well]['elevation'][i_line] = -float(lspl[5])
-            wells[well]['northing'][i_line] = float(lspl[12])
-            wells[well]['easting'][i_line] = float(lspl[13])
+            wells[well]['northing'][i_line] = float(lspl[13])
+            wells[well]['easting'][i_line] = float(lspl[12])
         for stage in [k for k in report.keys() if k.isdigit()]:
             wells[well][stage] = {}
             for cluster,td in {k:float(v) for k,v in report[stage].items() if 'TD' in k and v!=''}.items():
                 easting = np.interp(td,wells[well]['md'], wells[well]['easting'])
                 northing = np.interp(td,wells[well]['md'], wells[well]['northing'])
-                elevation= np.interp(td,wells[well]['md'], wells[well]['northing'])                
-                wells[well][stage][cluster+' easting'] = easting
-                wells[well][stage][cluster+' northing'] = northing
-                wells[well][stage][cluster+' elevation'] = elevation
-            
-            
+                elevation= np.interp(td,wells[well]['md'], wells[well]['northing'])
+                position = cluster.replace('Top','Heel').replace('Bottom','Toe')
+                wells[well][stage][position+' easting'] = easting
+                wells[well][stage][position+' northing'] = northing
+                wells[well][stage][position+' elevation'] = elevation
     return(wells)
         
 def read_stage_reports(well):
@@ -91,8 +95,35 @@ def read_stage_reports(well):
     f.close()
     return(report)
     
- 
+wells = read_wells()
+events = read_rdvs()
+    
+def read_and_rotate_stage(stage,well,azimuth = None):
+    perfs = wells[well][stage]
+    stage_events = {k:v for k,v in events.items() if (well+'_S'+stage) in k}
+    perf_eastings = np.array([v for k,v in perfs.items() if 'easting' in k])
+    perf_northings = np.array([v for k,v in perfs.items() if 'northing' in k])
+    perf_elevations = np.array([v for k,v in perfs.items() if 'elevation' in k])
+    avg_easting = np.average(perf_eastings)
+    avg_northing = np.average(perf_northings)
+    avg_elevation = np.average(perf_elevations)
+    if azimuth == None:
+        azimuth = np.arctan2(perf_northings[-1] - perf_northings[0],
+                             perf_eastings[-1] - perf_eastings[0])
+    else:
+        azimuth=0
+    R = np.array([[np.cos(azimuth), -np.sin(azimuth)],
+                  [np.sin(azimuth), np.cos(azimuth)]])
+    for event in stage_events:
+        rel_east = stage_events[event]['easting'] - avg_easting
+        rel_north = stage_events[event]['northing'] - avg_northing
+        rel_elevation = stage_events[event]['elevation'] - avg_elevation
+        h1,h2 = R@np.array([rel_east,rel_north]).T
+        stage_events[event]['h1'] = h1
+        stage_events[event]['h2'] = h2
+        stage_events[event]['rel_elevation'] = rel_elevation
+    return stage_events
 
-    
-    
+def read_treatment_rdvs(well): 
+    return
     
