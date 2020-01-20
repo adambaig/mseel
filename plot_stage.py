@@ -23,8 +23,9 @@ t_zero = np.array([timedelta(0,0,v['t0']*1.e6) +
                    datetime.strptime(v['time'],'%d:%m:%y:%H:%M:%S') 
                    for k,v in stage_events.items()])
 
-
+seconds= np.array([(t-min(t_zero)).seconds for t in t_zero])
 
 ax.set_aspect('equal')
-ax = plt.plot(h1,h2,'.')
+ax = plt.scatter(h1,h2,c=seconds,marker='o', edgecolor='k')
+
 
