@@ -68,7 +68,7 @@ def read_wells():
             for cluster,td in {k:float(v) for k,v in report[stage].items() if 'TD' in k and v!=''}.items():
                 easting = np.interp(td,wells[well]['md'], wells[well]['easting'])
                 northing = np.interp(td,wells[well]['md'], wells[well]['northing'])
-                elevation= np.interp(td,wells[well]['md'], wells[well]['northing'])
+                elevation= np.interp(td,wells[well]['md'], wells[well]['elevation'])
                 position = cluster.replace('Top','Heel').replace('Bottom','Toe')
                 wells[well][stage][position+' easting'] = easting
                 wells[well][stage][position+' northing'] = northing
@@ -124,6 +124,21 @@ def read_and_rotate_stage(stage,well,azimuth = None):
         stage_events[event]['rel_elevation'] = rel_elevation
     return stage_events
 
-def read_treatment_rdvs(well): 
-    return
+
+
+def read_treatment_rdvs(well, stage):
+    treatment = {}
+    f = open(well+'_CSV_treatment_data//2015HOU0098-NNE-MIP-'+well+'_Stg'+stage+'.csv')
+    head = f.readline()
+    unit = f.readline()
+    lines = f.readlines()
+    f.close()
+    parameters = [h+' '+u for h,u in zip(head.split(','),unit.split(','))]
+    for line in lines:
+        lspl = line.split()
+        time = lspl[0]
+        treatment[time] = {}
+        for i_parameter, parameter in enumerate(parameters):
+            treatment[time][parameter] = float(lspl[i_parameter])          
+    return treatment
     
