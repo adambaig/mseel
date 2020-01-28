@@ -91,6 +91,6 @@ for stage in stages:
         ax1.set_title('events')
         ax2.set_title('clusters\nstress')
         ax3.set_title('clusters\nstrain')
-        ax4.set_title('culsters\nstiffness')
+        ax4.set_title('clusters\nstiffness')
         fig.savefig('figures//'+stage+'.png')
         plt.close(fig)
