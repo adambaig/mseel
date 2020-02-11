@@ -19,7 +19,7 @@ radii = np.array([v['SP_RADIUS'] for k,v in frac_events.items()])
 stress_drops = np.array([v['SP_STRESS_DROP'] for k,v in frac_events.items()])
 snr = np.array([v['QI_SNR'] for k,v in frac_events.items()])
 f1,a1 = plt.subplots()
-isort = np.argsort(logsnr)
+isort = np.argsort(snr)
 a1.scatter(radii[isort]/3.28,moments[isort],marker='.',c=np.log10(snr[isort]),vmin=0,vmax=2.5 , cmap='Blues')
 a1.set_xscale('log')
 a1.set_yscale('log')
@@ -37,6 +37,11 @@ a1.set_ylim(mom1,mom2)
 f2,a2= plt.subplots()
 a2.loglog(snr,stress_drops,'.',alpha=0.05)
 
+f3, a3 = plt.subplots()
+a3.scatter(moments[isort],energies[isort],marker='.',c=np.log10(snr[isort]),vmin=0,vmax=2.5 , cmap='Blues')
 
-
+a3.set_xscale('log')
+a3.set_yscale('log')
+a3.set_ylabel('seismic energy (J)')
+a3.set_xlabel('seismic moment (N$\cdot$m)')
 

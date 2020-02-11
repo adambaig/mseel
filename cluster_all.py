@@ -7,6 +7,7 @@ Created on Sat Jan 18 10:41:46 2020
 
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.ma as ma
 from scipy.spatial import ConvexHull, Delaunay
 from sklearn.neighbors import NearestNeighbors
 from scipy.interpolate import Rbf
@@ -49,6 +50,10 @@ def in_hull(p, hull):
 
     return hull.find_simplex(p)>=0
 
+
+
+
+
 xyz = np.vstack([eastings, northings, elevations]).T
 nbrs = NearestNeighbors(n_neighbors=10, algorithm='ball_tree').fit(xyz)
 distances, indices = nbrs.kneighbors(xyz)
@@ -65,11 +70,7 @@ for event_indices in indices:
     clusters[event_indices[0]]["elevation"] = np.average([stage_events[event_keys[i]]['elevation'] for i in event_indices])
 
 
-for ax in ax1,ax2,ax3,ax4:
-    ax.set_aspect('equal')
-    ax.set_facecolor('0.97')
-x1,x2 = ax1.get_xlim()
-y1,y2 = ax1.get_ylim()
+
 c_easting= [v['easting'] for v in clusters.values()]
 c_northing= [v['northing'] for v in clusters.values()]
 c_elevation = [v['elevation'] for v in clusters.values()]
@@ -80,9 +81,11 @@ strain = [v["strain"] for v in clusters.values()]
 point_convex_hull = ConvexHull(xyz)
 
 points = np.vstack([c_easting, c_northing, c_elevation]).T
-stress_int = Rbf(c_easting, c_northing,c_elevation, np.log10(stress), function='inverse', smooth=0.01)
-strain_int = Rbf(c_easting, c_northing,c_elevation, np.log10(strain), function='inverse', smooth=0.01)
-stiffness_int = Rbf(c_easting, c_northing,c_elevation, np.log10(stiffness), function='inverse', smooth=0.01, epsilon=10)
+
+cluster_convex_hull = ConvexHull(points)
+stress_int = Rbf(c_easting, c_northing,c_elevation, np.log10(stress), function='inverse', smooth=0.4)
+strain_int = Rbf(c_easting, c_northing,c_elevation, np.log10(strain), function='inverse', smooth=0.4)
+stiffness_int = Rbf(c_easting, c_northing,c_elevation, np.log10(stiffness), function='inverse', smooth=0.4)
 
 ref_elevation= -6380
 grid_spacing = 30
@@ -90,7 +93,16 @@ east_grid = np.arange(min(eastings),max(eastings),grid_spacing)
 north_grid = np.arange(min(northings), max(northings), grid_spacing)
 elevation_grid = np.arange(min(elevations), max(elevations), grid_spacing)
 
+
+grid_points = []
+for i_east,e_grid in enumerate(east_grid):
+    for i_north, n_grid in enumerate(north_grid):
+        grid_points.append([e_grid, n_grid, ref_elevation])
+
+
 ne_grid, nn_grid,nz_grid = len(east_grid), len(north_grid),len(elevation_grid)
+mask = np.logical_not(in_hull(grid_points, points)).reshape([ne_grid, nn_grid])
+
 stress_map= np.zeros([ne_grid, nn_grid])
 strain_map = np.zeros([ne_grid, nn_grid])
 stiffness_map = np.zeros([ne_grid, nn_grid])
@@ -100,6 +112,10 @@ for i_east,e_grid in enumerate(east_grid):
         stress_map[i_east,i_north] = stress_int(e_grid,n_grid,ref_elevation)
         strain_map[i_east,i_north] = strain_int(e_grid,n_grid,ref_elevation)        
         stiffness_map[i_east,i_north] = stiffness_int(e_grid,n_grid,ref_elevation)
+
+strain_masked=ma.masked_array(strain_map, mask=mask)
+stress_masked=ma.masked_array(stress_map, mask=mask)
+stiffness_masked=ma.masked_array(stiffness_map, mask=mask)
     
 fig1, ax1 = plt.subplots(1,figsize=[10,8])
 fig2, ax2 = plt.subplots(1,figsize=[10,8])
@@ -109,9 +125,9 @@ for ax in [ax1,ax2,ax3,ax4]:
     ax.set_aspect('equal')
 
 ax1.scatter(eastings, northings, c=np.log10(apparent_stress), edgecolor='k', cmap="nipy_spectral",zorder=22)
-ax2.pcolor(east_grid, north_grid, stress_map.T, cmap="magma",zorder=22,alpha=0.7)
-ax3.pcolor(east_grid, north_grid, strain_map.T,  cmap="viridis",zorder=22,alpha=0.7)   
-ax4.pcolor(east_grid, north_grid, stiffness_map.T, cmap="nipy_spectral",zorder=22,alpha=0.7)
+ax2.pcolor(east_grid, north_grid, stress_masked.T, cmap="nipy_spectral",zorder=22,alpha=0.7)
+ax3.pcolor(east_grid, north_grid, strain_masked.T,  cmap="nipy_spectral",zorder=22,alpha=0.7)   
+ax4.pcolor(east_grid, north_grid, stiffness_masked.T, cmap="nipy_spectral",zorder=22,alpha=0.7)
 x1,x2 = ax1.get_xlim()
 y1,y2 = ax1.get_ylim()
 for ax in ax1,ax2,ax3,ax4:
